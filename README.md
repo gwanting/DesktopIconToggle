@@ -27,3 +27,5 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 
 - Windows 10 或 Windows 11
 - .NET Framework 4.x（Windows 10/11 通常已内置）
+
+程序支持高 DPI 和多显示器缩放；鼠标位置按每个显示器的实际缩放比例判断。

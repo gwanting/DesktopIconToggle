@@ -14,6 +14,10 @@ internal static class Program
     [STAThread]
     private static void Main()
     {
+        // 鼠标钩子坐标和桌面窗口坐标必须处于同一 DPI 坐标空间。
+        // 必须在创建任何 WinForms/Win32 窗口之前调用。
+        NativeMethods.EnablePerMonitorDpiAwareness();
+
         bool createdNew;
         using (Mutex mutex = new Mutex(true, @"Local\DesktopIconToggle.9D323887", out createdNew))
         {
@@ -526,6 +530,30 @@ internal static class NativeMethods
     internal delegate IntPtr LowLevelMouseProc(int code, IntPtr wParam, IntPtr lParam);
     internal delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
 
+    private static readonly IntPtr DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = new IntPtr(-4);
+
+    internal static void EnablePerMonitorDpiAwareness()
+    {
+        try
+        {
+            if (SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2))
+                return;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            // Windows 10 1703 之前没有 Per-Monitor V2，退回系统 DPI 感知。
+        }
+
+        try
+        {
+            SetProcessDPIAware();
+        }
+        catch (EntryPointNotFoundException)
+        {
+            // 仅为极老系统保留；支持的 Windows 10/11 不会进入这里。
+        }
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     internal struct POINT
     {
@@ -564,6 +592,14 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern IntPtr SetWindowsHookEx(int hookId, LowLevelMouseProc callback, IntPtr module, uint threadId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetProcessDpiAwarenessContext(IntPtr dpiContext);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetProcessDPIAware();
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
