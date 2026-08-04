@@ -1,0 +1,6 @@
+# Image-generation intermediate; final PNG/ICO are committed.
+assets/icon-b-chroma.png
+
+__pycache__/
+*.pyc
+*.pdb
