@@ -246,8 +246,6 @@ internal static class DesktopIcons
 {
     private const int WM_COMMAND = 0x0111;
     private const int TOGGLE_DESKTOP_ICONS = 0x7402;
-    private const int LVM_FIRST = 0x1000;
-    private const int LVM_HITTEST = LVM_FIRST + 18;
 
     internal static bool Toggle()
     {
@@ -290,20 +288,10 @@ internal static class DesktopIcons
             if (hitWindow != listView && !NativeMethods.IsChild(listView, hitWindow))
                 return false;
 
-            NativeMethods.POINT clientPoint = screenPoint;
-            if (!NativeMethods.ScreenToClient(listView, ref clientPoint))
+            bool isIcon;
+            if (!NativeMethods.TryIsAccessibleListItemAtPoint(screenPoint, out isIcon))
                 return false;
-
-            NativeMethods.RECT clientRect;
-            if (!NativeMethods.GetClientRect(listView, out clientRect) ||
-                clientPoint.X < clientRect.Left || clientPoint.X >= clientRect.Right ||
-                clientPoint.Y < clientRect.Top || clientPoint.Y >= clientRect.Bottom)
-                return false;
-
-            NativeMethods.LVHITTESTINFO hit = new NativeMethods.LVHITTESTINFO();
-            hit.pt = clientPoint;
-            IntPtr result = NativeMethods.SendMessage(listView, LVM_HITTEST, IntPtr.Zero, ref hit);
-            return result.ToInt32() == -1;
+            return !isIcon;
         }
 
         // 图标控件隐藏后，点击会落到它后面的 SHELLDLL_DefView、WorkerW 或 Progman。
@@ -527,6 +515,8 @@ internal static class ShellFolderView
 
 internal static class NativeMethods
 {
+    private const int ROLE_SYSTEM_LISTITEM = 0x22;
+
     internal delegate IntPtr LowLevelMouseProc(int code, IntPtr wParam, IntPtr lParam);
     internal delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
 
@@ -551,6 +541,35 @@ internal static class NativeMethods
         catch (EntryPointNotFoundException)
         {
             // 仅为极老系统保留；支持的 Windows 10/11 不会进入这里。
+        }
+    }
+
+    internal static bool TryIsAccessibleListItemAtPoint(POINT point, out bool isListItem)
+    {
+        isListItem = false;
+        Accessibility.IAccessible accessible = null;
+        object child = null;
+        try
+        {
+            int result = AccessibleObjectFromPoint(point, out accessible, out child);
+            if (result < 0 || accessible == null)
+                return false;
+
+            object role = accessible.get_accRole(child ?? 0);
+            if (role == null)
+                return false;
+
+            isListItem = Convert.ToInt32(role) == ROLE_SYSTEM_LISTITEM;
+            return true;
+        }
+        catch (COMException)
+        {
+            return false;
+        }
+        finally
+        {
+            if (accessible != null && Marshal.IsComObject(accessible))
+                Marshal.FinalReleaseComObject(accessible);
         }
     }
 
@@ -580,18 +599,14 @@ internal static class NativeMethods
         internal IntPtr extraInfo;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct LVHITTESTINFO
-    {
-        internal POINT pt;
-        internal uint flags;
-        internal int iItem;
-        internal int iSubItem;
-        internal int iGroup;
-    }
-
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern IntPtr SetWindowsHookEx(int hookId, LowLevelMouseProc callback, IntPtr module, uint threadId);
+
+    [DllImport("oleacc.dll")]
+    private static extern int AccessibleObjectFromPoint(
+        POINT point,
+        [MarshalAs(UnmanagedType.Interface)] out Accessibility.IAccessible accessible,
+        [MarshalAs(UnmanagedType.Struct)] out object child);
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -636,17 +651,6 @@ internal static class NativeMethods
 
     [DllImport("user32.dll")]
     internal static extern IntPtr GetAncestor(IntPtr window, uint flags);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool ScreenToClient(IntPtr window, ref POINT point);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool GetClientRect(IntPtr window, out RECT rect);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    internal static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, ref LVHITTESTINFO lParam);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     internal static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam);

@@ -18,6 +18,7 @@ if (Test-Path $outputPath) {
 $provider = New-Object Microsoft.CSharp.CSharpCodeProvider
 $parameters = New-Object System.CodeDom.Compiler.CompilerParameters
 [void]$parameters.ReferencedAssemblies.Add('System.dll')
+[void]$parameters.ReferencedAssemblies.Add('Accessibility.dll')
 [void]$parameters.ReferencedAssemblies.Add('System.Drawing.dll')
 [void]$parameters.ReferencedAssemblies.Add('System.Windows.Forms.dll')
 $parameters.GenerateExecutable = $true
