@@ -4,3 +4,4 @@ assets/icon-b-chroma.png
 __pycache__/
 *.pyc
 *.pdb
+dist/*.zip

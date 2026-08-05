@@ -1,10 +1,18 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
+
+[assembly: System.Reflection.AssemblyTitle("DesktopIconToggle")]
+[assembly: System.Reflection.AssemblyDescription("Double-click desktop blank space to toggle desktop icons")]
+[assembly: System.Reflection.AssemblyCompany("gwanting")]
+[assembly: System.Reflection.AssemblyProduct("DesktopIconToggle")]
+[assembly: System.Reflection.AssemblyVersion("1.1.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.1.0.0")]
 
 internal static class Program
 {
@@ -30,6 +38,16 @@ internal static class Program
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            Application.ThreadException += delegate(object sender, ThreadExceptionEventArgs e)
+            {
+                DiagnosticLog.Write("UI thread exception", e.Exception);
+            };
+            AppDomain.CurrentDomain.UnhandledException += delegate(object sender, UnhandledExceptionEventArgs e)
+            {
+                DiagnosticLog.Write("Unhandled exception", e.ExceptionObject as Exception);
+            };
+            DiagnosticLog.Write("Application started. OS=" + Environment.OSVersion +
+                ", Version=" + typeof(Program).Assembly.GetName().Version);
             using (TrayApplicationContext context = new TrayApplicationContext())
             {
                 Application.Run(context);
@@ -45,6 +63,47 @@ internal static class Program
     internal static string RunValueName
     {
         get { return AppName; }
+    }
+}
+
+internal static class DiagnosticLog
+{
+    private static readonly object SyncRoot = new object();
+    private static readonly string LogDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "DesktopIconToggle");
+    internal static readonly string LogPath = Path.Combine(LogDirectory, "DesktopIconToggle.log");
+
+    internal static void Write(string message)
+    {
+        Write(message, null);
+    }
+
+    internal static void Write(string message, Exception exception)
+    {
+        try
+        {
+            lock (SyncRoot)
+            {
+                Directory.CreateDirectory(LogDirectory);
+                if (File.Exists(LogPath) && new FileInfo(LogPath).Length > 1024 * 1024)
+                {
+                    string previous = LogPath + ".old";
+                    if (File.Exists(previous))
+                        File.Delete(previous);
+                    File.Move(LogPath, previous);
+                }
+
+                string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + " | " + message;
+                if (exception != null)
+                    line += " | " + exception.GetType().Name + ": " + exception.Message;
+                File.AppendAllText(LogPath, line + Environment.NewLine);
+            }
+        }
+        catch
+        {
+            // Logging must never prevent the utility from working.
+        }
     }
 }
 
@@ -64,6 +123,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         ContextMenuStrip menu = new ContextMenuStrip();
         menu.Items.Add(toggleItem);
         menu.Items.Add(startupItem);
+        menu.Items.Add(new ToolStripMenuItem("打开诊断日志", null, OnOpenLogClicked));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("退出", null, OnExitClicked));
 
@@ -104,7 +164,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (!DesktopIcons.Toggle())
         {
             trayIcon.ShowBalloonTip(2000, "切换失败",
-                "暂时找不到 Windows 桌面窗口，请稍后再试。", ToolTipIcon.Warning);
+                "未能确认图标状态，已停止切换。可从托盘菜单打开诊断日志。", ToolTipIcon.Warning);
         }
         UpdateToggleText();
     }
@@ -132,6 +192,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void OnExitClicked(object sender, EventArgs e)
     {
         ExitThread();
+    }
+
+    private void OnOpenLogClicked(object sender, EventArgs e)
+    {
+        DiagnosticLog.Write("Diagnostic log opened by user.");
+        Process.Start("explorer.exe", "/select,\"" + DiagnosticLog.LogPath + "\"");
     }
 
     protected override void ExitThreadCore()
@@ -176,12 +242,19 @@ internal sealed class DesktopMouseWatcher : IDisposable
     private const int WM_LBUTTONDOWN = 0x0201;
 
     private NativeMethods.LowLevelMouseProc callback;
+    private readonly Control dispatcher;
     private IntPtr hookHandle;
     private uint lastClickTime;
     private NativeMethods.POINT lastClickPoint;
     private bool lastClickWasDesktopBlank;
 
     internal event EventHandler ToggleRequested;
+
+    internal DesktopMouseWatcher()
+    {
+        dispatcher = new Control();
+        dispatcher.CreateControl();
+    }
 
     internal void Start()
     {
@@ -203,7 +276,16 @@ internal sealed class DesktopMouseWatcher : IDisposable
         {
             NativeMethods.MSLLHOOKSTRUCT data =
                 (NativeMethods.MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(NativeMethods.MSLLHOOKSTRUCT));
-            HandleLeftButtonDown(data.pt, data.time);
+            NativeMethods.POINT point = data.pt;
+            uint time = data.time;
+            try
+            {
+                dispatcher.BeginInvoke(new Action<NativeMethods.POINT, uint>(HandleLeftButtonDown), point, time);
+            }
+            catch (InvalidOperationException)
+            {
+                // The application is shutting down.
+            }
         }
         return NativeMethods.CallNextHookEx(hookHandle, code, wParam, lParam);
     }
@@ -221,6 +303,7 @@ internal sealed class DesktopMouseWatcher : IDisposable
             lastClickTime = 0;
             lastClickWasDesktopBlank = false;
             EventHandler handler = ToggleRequested;
+            DiagnosticLog.Write("Desktop blank double-click accepted at " + point.X + "," + point.Y);
             if (handler != null)
                 handler(this, EventArgs.Empty);
             return;
@@ -239,31 +322,41 @@ internal sealed class DesktopMouseWatcher : IDisposable
             hookHandle = IntPtr.Zero;
         }
         callback = null;
+        dispatcher.Dispose();
     }
 }
 
 internal static class DesktopIcons
 {
-    private const int WM_COMMAND = 0x0111;
-    private const int TOGGLE_DESKTOP_ICONS = 0x7402;
-
     internal static bool Toggle()
     {
         bool visible;
-        if (ShellFolderView.TryGetIconsVisible(out visible) &&
-            ShellFolderView.TrySetIconsVisible(!visible))
-            return true;
-
-        // 旧版 Shell 的后备路径。
-        IntPtr defView = FindDesktopDefView();
-        if (defView == IntPtr.Zero)
+        if (!ShellFolderView.TryGetIconsVisible(out visible))
+        {
+            DiagnosticLog.Write("Toggle rejected: unable to read Shell folder flags.");
             return false;
+        }
 
-        // 使用资源管理器自己的“显示桌面图标”命令。直接 ShowWindow 会被
-        // Windows 10/11 的 Explorer 自动纠正，表现为闪烁后立刻重新显示。
-        NativeMethods.SendMessage(defView, WM_COMMAND,
-            new IntPtr(TOGGLE_DESKTOP_ICONS), IntPtr.Zero);
-        return true;
+        bool requestedVisible = !visible;
+        if (!ShellFolderView.TrySetIconsVisible(requestedVisible))
+        {
+            DiagnosticLog.Write("Toggle rejected: Shell refused requested visibility=" + requestedVisible);
+            return false;
+        }
+
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            Thread.Sleep(50);
+            bool actualVisible;
+            if (ShellFolderView.TryGetIconsVisible(out actualVisible) && actualVisible == requestedVisible)
+            {
+                DiagnosticLog.Write("Toggle verified. Visible=" + actualVisible + ", attempt=" + (attempt + 1));
+                return true;
+            }
+        }
+
+        DiagnosticLog.Write("Toggle failed verification. Requested visible=" + requestedVisible);
+        return false;
     }
 
     internal static bool AreVisible()
@@ -289,7 +382,7 @@ internal static class DesktopIcons
                 return false;
 
             bool isIcon;
-            if (!NativeMethods.TryIsAccessibleListItemAtPoint(screenPoint, out isIcon))
+            if (!NativeMethods.TryHitTestAccessibleChild(listView, screenPoint, out isIcon))
                 return false;
             return !isIcon;
         }
@@ -336,6 +429,10 @@ internal static class DesktopIcons
         IntPtr found = IntPtr.Zero;
         NativeMethods.EnumWindows(delegate(IntPtr window, IntPtr parameter)
         {
+            string hostClass = NativeMethods.GetClassNameString(window);
+            if (hostClass != "WorkerW" && hostClass != "Progman")
+                return true;
+
             IntPtr view = NativeMethods.FindWindowEx(window, IntPtr.Zero, "SHELLDLL_DefView", null);
             if (view != IntPtr.Zero)
             {
@@ -356,6 +453,7 @@ internal static class ShellFolderView
     private const int SWC_DESKTOP = 8;
     private const int SWFO_NEEDDISPATCH = 1;
     private const uint FWF_NOICONS = 0x00001000;
+    private const uint FVO_CUSTOMPOSITION = 0x00000001;
 
     private static readonly Guid CLSID_ShellWindows =
         new Guid("9BA05972-F6A8-11CF-A442-00A0C90A8F39");
@@ -365,6 +463,8 @@ internal static class ShellFolderView
         new Guid("000214E2-0000-0000-C000-000000000046");
     private static readonly Guid IID_IFolderView2 =
         new Guid("1AF3A467-214F-4298-908E-06B03E0B39F9");
+    private static readonly Guid IID_IFolderViewOptions =
+        new Guid("3CC974D2-B302-4D36-AD3E-06D93F695D3F");
 
     [ComImport]
     [Guid("6D5140C1-7436-11CE-8034-00AA006009FA")]
@@ -384,13 +484,17 @@ internal static class ShellFolderView
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
     private delegate int SetCurrentFolderFlagsDelegate(IntPtr folderView, uint mask, uint flags);
 
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate int SetFolderViewOptionsDelegate(IntPtr folderViewOptions, uint mask, uint options);
+
     internal static bool TryGetIconsVisible(out bool visible)
     {
         visible = true;
         IntPtr folderView = IntPtr.Zero;
+        IntPtr folderViewOptions = IntPtr.Zero;
         try
         {
-            folderView = GetDesktopFolderView2();
+            folderView = GetDesktopFolderView2(out folderViewOptions);
             if (folderView == IntPtr.Zero)
                 return false;
 
@@ -406,12 +510,15 @@ internal static class ShellFolderView
             visible = (flags & FWF_NOICONS) == 0;
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            DiagnosticLog.Write("Unable to read desktop folder flags", ex);
             return false;
         }
         finally
         {
+            if (folderViewOptions != IntPtr.Zero)
+                Marshal.Release(folderViewOptions);
             if (folderView != IntPtr.Zero)
                 Marshal.Release(folderView);
         }
@@ -420,11 +527,25 @@ internal static class ShellFolderView
     internal static bool TrySetIconsVisible(bool visible)
     {
         IntPtr folderView = IntPtr.Zero;
+        IntPtr folderViewOptions = IntPtr.Zero;
         try
         {
-            folderView = GetDesktopFolderView2();
+            folderView = GetDesktopFolderView2(out folderViewOptions);
             if (folderView == IntPtr.Zero)
                 return false;
+
+            if (folderViewOptions != IntPtr.Zero)
+            {
+                IntPtr optionsMethod = GetVTableMethod(folderViewOptions, 3);
+                SetFolderViewOptionsDelegate setOptions =
+                    (SetFolderViewOptionsDelegate)Marshal.GetDelegateForFunctionPointer(
+                        optionsMethod, typeof(SetFolderViewOptionsDelegate));
+                int optionsResult = setOptions(
+                    folderViewOptions, FVO_CUSTOMPOSITION, FVO_CUSTOMPOSITION);
+                if (optionsResult < 0)
+                    DiagnosticLog.Write("Shell did not accept FVO_CUSTOMPOSITION. HRESULT=0x" +
+                        optionsResult.ToString("X8"));
+            }
 
             IntPtr method = GetVTableMethod(folderView, 24);
             SetCurrentFolderFlagsDelegate setFlags =
@@ -433,24 +554,29 @@ internal static class ShellFolderView
             uint flags = visible ? 0u : FWF_NOICONS;
             return setFlags(folderView, FWF_NOICONS, flags) >= 0;
         }
-        catch
+        catch (Exception ex)
         {
+            DiagnosticLog.Write("Unable to set desktop folder flags", ex);
             return false;
         }
         finally
         {
+            if (folderViewOptions != IntPtr.Zero)
+                Marshal.Release(folderViewOptions);
             if (folderView != IntPtr.Zero)
                 Marshal.Release(folderView);
         }
     }
 
-    private static IntPtr GetDesktopFolderView2()
+    private static IntPtr GetDesktopFolderView2(out IntPtr folderViewOptionsResult)
     {
+        folderViewOptionsResult = IntPtr.Zero;
         object shellWindows = null;
         object desktopDispatch = null;
         IntPtr browser = IntPtr.Zero;
         IntPtr shellView = IntPtr.Zero;
         IntPtr folderView = IntPtr.Zero;
+        IntPtr folderViewOptions = IntPtr.Zero;
         try
         {
             Type type = Type.GetTypeFromCLSID(CLSID_ShellWindows, true);
@@ -483,16 +609,23 @@ internal static class ShellFolderView
             if (queryView(browser, out shellView) < 0 || shellView == IntPtr.Zero)
                 return IntPtr.Zero;
 
+            Guid optionsId = IID_IFolderViewOptions;
+            Marshal.QueryInterface(shellView, ref optionsId, out folderViewOptions);
+
             Guid folderViewId = IID_IFolderView2;
             if (Marshal.QueryInterface(shellView, ref folderViewId, out folderView) < 0)
                 return IntPtr.Zero;
 
             IntPtr result = folderView;
             folderView = IntPtr.Zero;
+            folderViewOptionsResult = folderViewOptions;
+            folderViewOptions = IntPtr.Zero;
             return result;
         }
         finally
         {
+            if (folderViewOptions != IntPtr.Zero)
+                Marshal.Release(folderViewOptions);
             if (folderView != IntPtr.Zero)
                 Marshal.Release(folderView);
             if (shellView != IntPtr.Zero)
@@ -515,7 +648,9 @@ internal static class ShellFolderView
 
 internal static class NativeMethods
 {
-    private const int ROLE_SYSTEM_LISTITEM = 0x22;
+    private const uint OBJID_CLIENT = 0xFFFFFFFC;
+    private static readonly Guid IID_IAccessible =
+        new Guid("618736E0-3C3D-11CF-810C-00AA00389B71");
 
     internal delegate IntPtr LowLevelMouseProc(int code, IntPtr wParam, IntPtr lParam);
     internal delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
@@ -544,30 +679,41 @@ internal static class NativeMethods
         }
     }
 
-    internal static bool TryIsAccessibleListItemAtPoint(POINT point, out bool isListItem)
+    internal static bool TryHitTestAccessibleChild(IntPtr listView, POINT point, out bool isListItem)
     {
         isListItem = false;
         Accessibility.IAccessible accessible = null;
-        object child = null;
+        object hit = null;
         try
         {
-            int result = AccessibleObjectFromPoint(point, out accessible, out child);
+            Guid accessibleId = IID_IAccessible;
+            int result = AccessibleObjectFromWindow(
+                listView, OBJID_CLIENT, ref accessibleId, out accessible);
             if (result < 0 || accessible == null)
                 return false;
 
-            object role = accessible.get_accRole(child ?? 0);
-            if (role == null)
+            hit = accessible.accHitTest(point.X, point.Y);
+            if (hit == null)
                 return false;
 
-            isListItem = Convert.ToInt32(role) == ROLE_SYSTEM_LISTITEM;
+            if (hit is int || hit is short || hit is long)
+                isListItem = Convert.ToInt64(hit) > 0;
+            else if (hit is Accessibility.IAccessible || Marshal.IsComObject(hit))
+                isListItem = true;
+            else
+                return false;
+
             return true;
         }
-        catch (COMException)
+        catch (Exception ex)
         {
+            DiagnosticLog.Write("Desktop accessibility hit-test failed", ex);
             return false;
         }
         finally
         {
+            if (hit != null && Marshal.IsComObject(hit) && !Object.ReferenceEquals(hit, accessible))
+                Marshal.FinalReleaseComObject(hit);
             if (accessible != null && Marshal.IsComObject(accessible))
                 Marshal.FinalReleaseComObject(accessible);
         }
@@ -603,10 +749,11 @@ internal static class NativeMethods
     internal static extern IntPtr SetWindowsHookEx(int hookId, LowLevelMouseProc callback, IntPtr module, uint threadId);
 
     [DllImport("oleacc.dll")]
-    private static extern int AccessibleObjectFromPoint(
-        POINT point,
-        [MarshalAs(UnmanagedType.Interface)] out Accessibility.IAccessible accessible,
-        [MarshalAs(UnmanagedType.Struct)] out object child);
+    private static extern int AccessibleObjectFromWindow(
+        IntPtr window,
+        uint objectId,
+        ref Guid interfaceId,
+        [MarshalAs(UnmanagedType.Interface)] out Accessibility.IAccessible accessible);
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -651,9 +798,6 @@ internal static class NativeMethods
 
     [DllImport("user32.dll")]
     internal static extern IntPtr GetAncestor(IntPtr window, uint flags);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    internal static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
