@@ -1,7 +1,8 @@
 // taskbar_transparency.cpp
 // 任务栏全透明(Windows 11 XAML 任务栏)注入模块。
 //
-// 实现思路参考 TranslucentTB(GPL-3.0)的 ExplorerTAP 注入方案,做大幅简化:
+// 实现思路参考 TranslucentTB(GPL-3.0,https://github.com/TranslucentTB/TranslucentTB,
+// Copyright (C) 2016-2026 TranslucentTB contributors)的 ExplorerTAP 注入方案,做大幅简化:
 //   - 由主程序 CreateRemoteThread + LoadLibrary 注入到 explorer.exe;
 //   - 通过 InitializeXamlDiagnosticsEx(Windows.UI.Xaml.dll 导出)注册
 //     IVisualTreeServiceCallback2,监听 XAML 视觉树变化;
@@ -9,6 +10,7 @@
 //   - 通过命名共享内存与主程序通信:state=1 时把这两个矩形的 Fill 设为
 //     全透明 SolidColorBrush(alpha=0),state=0 时恢复原 Fill。
 //
+// 本文件以 GPL-3.0 许可发布(见项目 LICENSE 与 THIRD_PARTY_NOTICES.md)。
 // 仅在 explorer.exe 进程中生效;被其他进程误加载时不做任何事。
 
 #include <windows.h>
