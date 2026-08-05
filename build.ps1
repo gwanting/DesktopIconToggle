@@ -1,0 +1,55 @@
+param(
+    [string]$OutputDirectory = "$PSScriptRoot\dist"
+)
+
+$ErrorActionPreference = 'Stop'
+$sourcePath = Join-Path $PSScriptRoot 'DesktopIconToggle.cs'
+$iconPath = Join-Path $PSScriptRoot 'assets\DesktopIconToggle.ico'
+$outputPath = Join-Path $OutputDirectory 'DesktopIconToggle.exe'
+$nativeDir = Join-Path $PSScriptRoot 'native'
+$nativeDll = Join-Path $nativeDir 'taskbar_transparency.dll'
+
+if (-not (Test-Path $OutputDirectory)) {
+    New-Item -ItemType Directory -Path $OutputDirectory | Out-Null
+}
+
+# Build the native injection DLL for taskbar transparency (requires MSYS2 / MinGW-w64).
+# If MSYS2 is missing, skip with a warning; the main program still builds.
+$msysBash = 'C:\msys64\usr\bin\bash.exe'
+if (Test-Path $msysBash) {
+    & $msysBash -lc "bash `"$(($nativeDir -replace '\\','/') -replace '^([A-Za-z]):','/$1')/build_native.sh`""
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Native DLL build failed.'
+    }
+    Copy-Item -LiteralPath $nativeDll -Destination $OutputDirectory -Force
+    Write-Host "Native DLL copied: $(Join-Path $OutputDirectory 'taskbar_transparency.dll')"
+}
+else {
+    Write-Warning 'MSYS2 not found; taskbar_transparency.dll will not be built. Taskbar transparency (Win11) will be unavailable.'
+}
+
+if (Test-Path $outputPath) {
+    Remove-Item -LiteralPath $outputPath
+}
+
+$provider = New-Object Microsoft.CSharp.CSharpCodeProvider
+$parameters = New-Object System.CodeDom.Compiler.CompilerParameters
+[void]$parameters.ReferencedAssemblies.Add('System.dll')
+[void]$parameters.ReferencedAssemblies.Add('Accessibility.dll')
+[void]$parameters.ReferencedAssemblies.Add('System.Drawing.dll')
+[void]$parameters.ReferencedAssemblies.Add('System.Windows.Forms.dll')
+$parameters.GenerateExecutable = $true
+$parameters.GenerateInMemory = $false
+$parameters.IncludeDebugInformation = $false
+$parameters.OutputAssembly = $outputPath
+$parameters.CompilerOptions = "/target:winexe /optimize+ /win32icon:`"$iconPath`""
+
+$result = $provider.CompileAssemblyFromFile($parameters, $sourcePath)
+$provider.Dispose()
+
+if ($result.Errors.HasErrors) {
+    $result.Errors | ForEach-Object { Write-Error $_.ToString() }
+    throw 'Build failed.'
+}
+
+Write-Host "Build complete: $outputPath"
