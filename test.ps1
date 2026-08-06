@@ -44,7 +44,7 @@ public static class DesktopIconToggleTestNative
 '@
 
 $fileVersion = (Get-Item -LiteralPath $ExecutablePath).VersionInfo.FileVersion
-Assert-True ($fileVersion -eq '1.2.0.0') 'file version is 1.2.0.0'
+Assert-True ($fileVersion -eq '1.2.1.0') 'file version is 1.2.1.0'
 
 $assembly = [Reflection.Assembly]::LoadFile((Resolve-Path $ExecutablePath).Path)
 $allStatic = [Reflection.BindingFlags]'Static,Public,NonPublic'

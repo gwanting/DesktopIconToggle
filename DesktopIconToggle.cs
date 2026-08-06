@@ -12,8 +12,8 @@ using Microsoft.Win32;
 [assembly: System.Reflection.AssemblyDescription("Double-click desktop blank space to toggle desktop icons")]
 [assembly: System.Reflection.AssemblyCompany("gwanting")]
 [assembly: System.Reflection.AssemblyProduct("DesktopIconToggle")]
-[assembly: System.Reflection.AssemblyVersion("1.2.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.2.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.2.1.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.2.1.0")]
 
 internal static class Program
 {
@@ -222,6 +222,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     protected override void ExitThreadCore()
     {
         DiagnosticLog.Write("ExitThreadCore entered.");
+        DesktopIcons.Restore();
         TaskbarTransparency.Restore();
         watcher.Dispose();
         trayIcon.Visible = false;
@@ -734,6 +735,10 @@ internal sealed class DesktopMouseWatcher : IDisposable
 
 internal static class DesktopIcons
 {
+    // 图标是否由本程序切换为隐藏。退出时据此恢复显示，
+    // 避免打扰用户通过其他方式主动隐藏图标的状态。
+    private static bool hiddenByUs;
+
     internal static bool Toggle()
     {
         bool visible;
@@ -757,12 +762,38 @@ internal static class DesktopIcons
             if (ShellFolderView.TryGetIconsVisible(out actualVisible) && actualVisible == requestedVisible)
             {
                 DiagnosticLog.Write("Toggle verified. Visible=" + actualVisible + ", attempt=" + (attempt + 1));
+                hiddenByUs = !requestedVisible;
                 return true;
             }
         }
 
         DiagnosticLog.Write("Toggle failed verification. Requested visible=" + requestedVisible);
         return false;
+    }
+
+    // 程序退出时调用：若图标是本程序隐藏的且当前仍处于隐藏状态，则恢复显示。
+    internal static void Restore()
+    {
+        if (!hiddenByUs)
+            return;
+        hiddenByUs = false;
+
+        bool visible;
+        if (!ShellFolderView.TryGetIconsVisible(out visible))
+        {
+            DiagnosticLog.Write("Restore skipped: unable to read Shell folder flags on exit.");
+            return;
+        }
+        if (visible)
+        {
+            DiagnosticLog.Write("Restore skipped: icons already visible on exit.");
+            return;
+        }
+
+        if (ShellFolderView.TrySetIconsVisible(true))
+            DiagnosticLog.Write("Desktop icons restored on exit.");
+        else
+            DiagnosticLog.Write("Restore failed: Shell refused to show icons on exit.");
     }
 
     internal static bool AreVisible()
