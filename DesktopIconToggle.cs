@@ -12,6 +12,8 @@ using Microsoft.Win32;
 [assembly: System.Reflection.AssemblyDescription("Double-click desktop blank space to toggle desktop icons")]
 [assembly: System.Reflection.AssemblyCompany("gwanting")]
 [assembly: System.Reflection.AssemblyProduct("DesktopIconToggle")]
+[assembly: System.Reflection.AssemblyCopyright("Copyright © 2026 gwanting")]
+[assembly: System.Reflection.AssemblyInformationalVersion("1.2.1")]
 [assembly: System.Reflection.AssemblyVersion("1.2.1.0")]
 [assembly: System.Reflection.AssemblyFileVersion("1.2.1.0")]
 
@@ -131,6 +133,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(startupItem);
         menu.Items.Add(new ToolStripMenuItem("打开诊断日志", null, OnOpenLogClicked));
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(new ToolStripMenuItem("关于", null, OnAboutClicked));
         menu.Items.Add(new ToolStripMenuItem("退出", null, OnExitClicked));
 
         trayIcon = new NotifyIcon();
@@ -219,6 +222,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         Process.Start("explorer.exe", "/select,\"" + DiagnosticLog.LogPath + "\"");
     }
 
+    private void OnAboutClicked(object sender, EventArgs e)
+    {
+        using (AboutForm dialog = new AboutForm())
+        {
+            dialog.ShowDialog();
+        }
+    }
+
     protected override void ExitThreadCore()
     {
         DiagnosticLog.Write("ExitThreadCore entered.");
@@ -228,6 +239,54 @@ internal sealed class TrayApplicationContext : ApplicationContext
         trayIcon.Visible = false;
         trayIcon.Dispose();
         base.ExitThreadCore();
+    }
+}
+
+// 程序内"关于"对话框：显示版本、开发者与项目主页。
+internal sealed class AboutForm : Form
+{
+    private const string GithubUrl = "https://github.com/gwanting/DesktopIconToggle";
+
+    internal AboutForm()
+    {
+        Text = "关于 桌面图标开关";
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        MaximizeBox = false;
+        MinimizeBox = false;
+        ShowInTaskbar = false;
+        StartPosition = FormStartPosition.CenterScreen;
+        ClientSize = new Size(380, 200);
+        Font = SystemFonts.MessageBoxFont;
+
+        Label appName = new Label();
+        appName.Text = "桌面图标开关 (DesktopIconToggle)";
+        appName.Font = new Font(Font, FontStyle.Bold);
+        appName.SetBounds(16, 14, 348, 22);
+        Controls.Add(appName);
+
+        string version = typeof(Program).Assembly.GetName().Version.ToString(3);
+        Label meta = new Label();
+        meta.Text = "版本：v" + version + "   开发者：gwanting";
+        meta.SetBounds(16, 42, 348, 20);
+        Controls.Add(meta);
+
+        Label desc = new Label();
+        desc.Text = "双击桌面空白处隐藏/显示桌面图标；运行时可开启任务栏全透明。";
+        desc.SetBounds(16, 68, 348, 34);
+        Controls.Add(desc);
+
+        LinkLabel link = new LinkLabel();
+        link.Text = GithubUrl;
+        link.LinkClicked += delegate { Process.Start(GithubUrl); };
+        link.SetBounds(16, 108, 348, 20);
+        Controls.Add(link);
+
+        Button ok = new Button();
+        ok.Text = "确定";
+        ok.DialogResult = DialogResult.OK;
+        ok.SetBounds(150, 152, 80, 28);
+        AcceptButton = ok;
+        Controls.Add(ok);
     }
 }
 
