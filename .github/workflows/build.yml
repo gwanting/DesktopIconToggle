@@ -29,7 +29,14 @@ jobs:
         run: |
           which g++
           which cppwinrt
-          cppwinrt -help 2>&1 | head -3 || echo "cppwinrt -help failed"
+          ls -la /mingw64/bin/cppwinrt.exe || echo "cppwinrt.exe not in /mingw64/bin"
+          pacman -Q mingw-w64-x86_64-cppwinrt || echo "cppwinrt pkg not found"
+
+      # 诊断 build.ps1 的 bash 调用环境（与 Build 步骤一致）。
+      - name: Diagnose bash env
+        shell: powershell
+        run: |
+          & 'C:\msys64\usr\bin\bash.exe' -lc "echo MSYSTEM=\$MSYSTEM; echo PATH=\$PATH; which cppwinrt || echo 'cppwinrt NOT on PATH'; ls /mingw64/bin/cppwinrt.exe || echo 'file missing'"
 
       # 端到端构建：native DLL + 主程序（build.ps1 内部按需生成 C++/WinRT 投影头）。
       - name: Build
