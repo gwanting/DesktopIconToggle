@@ -8,19 +8,19 @@ using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
-[assembly: System.Reflection.AssemblyTitle("DesktopIconToggle")]
+[assembly: System.Reflection.AssemblyTitle("GHide")]
 [assembly: System.Reflection.AssemblyDescription("Double-click desktop blank space to toggle desktop icons")]
 [assembly: System.Reflection.AssemblyCompany("gwanting")]
-[assembly: System.Reflection.AssemblyProduct("DesktopIconToggle")]
+[assembly: System.Reflection.AssemblyProduct("GHide")]
 [assembly: System.Reflection.AssemblyCopyright("Copyright © 2026 gwanting")]
-[assembly: System.Reflection.AssemblyInformationalVersion("1.2.1")]
-[assembly: System.Reflection.AssemblyVersion("1.2.1.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.2.1.0")]
+[assembly: System.Reflection.AssemblyInformationalVersion("1.3.0")]
+[assembly: System.Reflection.AssemblyVersion("1.3.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.3.0.0")]
 
 internal static class Program
 {
-    private const string AppName = "DesktopIconToggle";
-    private const string AppTitle = "桌面图标开关";
+    private const string AppName = "GHide";
+    private const string AppTitle = "G 藏图标";
 
     [STAThread]
     private static void Main()
@@ -30,7 +30,7 @@ internal static class Program
         NativeMethods.EnablePerMonitorDpiAwareness();
 
         bool createdNew;
-        using (Mutex mutex = new Mutex(true, @"Local\DesktopIconToggle.9D323887", out createdNew))
+        using (Mutex mutex = new Mutex(true, @"Local\GHide.9D323887", out createdNew))
         {
             if (!createdNew)
             {
@@ -75,8 +75,8 @@ internal static class DiagnosticLog
     private static readonly object SyncRoot = new object();
     private static readonly string LogDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "DesktopIconToggle");
-    internal static readonly string LogPath = Path.Combine(LogDirectory, "DesktopIconToggle.log");
+        "GHide");
+    internal static readonly string LogPath = Path.Combine(LogDirectory, "GHide.log");
 
     internal static void Write(string message)
     {
@@ -138,7 +138,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         trayIcon = new NotifyIcon();
         trayIcon.Icon = Icon.ExtractAssociatedIcon(Program.ExecutablePath);
-        trayIcon.Text = "桌面图标开关：双击桌面空白处切换图标";
+        trayIcon.Text = "G 藏图标：双击桌面空白处切换图标";
         trayIcon.ContextMenuStrip = menu;
         trayIcon.Visible = true;
         trayIcon.DoubleClick += OnTrayDoubleClick;
@@ -151,7 +151,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         // 默认开启任务栏全透明(可随时在托盘菜单关闭,退出时自动恢复)。
         TaskbarTransparency.Apply();
 
-        trayIcon.ShowBalloonTip(2500, "桌面图标开关已启动",
+        trayIcon.ShowBalloonTip(2500, "G 藏图标已启动",
             "双击桌面空白处，可隐藏或显示全部桌面图标。",
             ToolTipIcon.Info);
     }
@@ -245,11 +245,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
 // 程序内"关于"对话框：显示版本、开发者与项目主页。
 internal sealed class AboutForm : Form
 {
-    private const string GithubUrl = "https://github.com/gwanting/DesktopIconToggle";
+    private const string GithubUrl = "https://github.com/gwanting/GHide";
 
     internal AboutForm()
     {
-        Text = "关于 桌面图标开关";
+        Text = "关于 G 藏图标";
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -259,7 +259,7 @@ internal sealed class AboutForm : Form
         Font = SystemFonts.MessageBoxFont;
 
         Label appName = new Label();
-        appName.Text = "桌面图标开关 (DesktopIconToggle)";
+        appName.Text = "G 藏图标 (GHide)";
         appName.Font = new Font(Font, FontStyle.Bold);
         appName.SetBounds(16, 14, 348, 22);
         Controls.Add(appName);
@@ -329,6 +329,8 @@ internal static class TaskbarTransparency
 {
     private const string TaskbarWindowClass = "Shell_TrayWnd";
     private const string XamlBridgeClass = "Windows.UI.Composition.DesktopWindowContentBridge";
+    // 与注入 DLL (taskbar_transparency.dll) 约定的共享内存名，不得更改：
+    // DLL 需在 MSYS2 环境重编译才能同步改名，改名会破坏任务栏透明通信。
     private const string StateName = @"Local\DesktopIconToggleTaskbarState";
     private const uint StateMagic = 0x44544954; // 'DITT'
     private const int OffMagic = 0;
@@ -678,7 +680,7 @@ internal static class TaskbarTransparency
             this.callback = callback;
             taskbarCreatedMessage = NativeMethods.RegisterWindowMessage("TaskbarCreated");
             CreateParams parameters = new CreateParams();
-            parameters.Caption = "DesktopIconToggleTaskbarListener";
+            parameters.Caption = "GHideTaskbarListener";
             parameters.Style = 0;
             parameters.ExStyle = WS_EX_TOOLWINDOW;
             CreateHandle(parameters);

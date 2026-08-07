@@ -3,9 +3,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$sourcePath = Join-Path $PSScriptRoot 'DesktopIconToggle.cs'
-$iconPath = Join-Path $PSScriptRoot 'assets\DesktopIconToggle.ico'
-$outputPath = Join-Path $OutputDirectory 'DesktopIconToggle.exe'
+$sourcePath = Join-Path $PSScriptRoot 'GHide.cs'
+$iconPath = Join-Path $PSScriptRoot 'assets\GHide.ico'
+$outputPath = Join-Path $OutputDirectory 'GHide.exe'
 $nativeDir = Join-Path $PSScriptRoot 'native'
 $nativeDll = Join-Path $nativeDir 'taskbar_transparency.dll'
 

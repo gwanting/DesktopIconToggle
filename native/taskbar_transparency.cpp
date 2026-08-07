@@ -43,7 +43,7 @@ namespace wuxh = winrt::Windows::UI::Xaml::Hosting;
 namespace wuxm = winrt::Windows::UI::Xaml::Media;
 namespace wuxs = winrt::Windows::UI::Xaml::Shapes;
 
-// ---- 与主程序(DesktopIconToggle.cs)约定的共享内存协议 ----
+// ---- 与主程序(GHide)约定的共享内存协议 ----
 #define STATE_MAGIC 0x44544954u // 'DITT'
 #define STATE_NAME L"Local\\DesktopIconToggleTaskbarState"
 struct SharedState

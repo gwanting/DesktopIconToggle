@@ -10,3 +10,6 @@ dist/*.zip
 native/include/
 native/taskbar_transparency.dll
 dist/taskbar_transparency.dll
+
+# Reasonix local metadata
+.reasonix/

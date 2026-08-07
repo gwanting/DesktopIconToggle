@@ -1,5 +1,5 @@
 param(
-    [string]$ExecutablePath = "$PSScriptRoot\dist\DesktopIconToggle.exe"
+    [string]$ExecutablePath = "$PSScriptRoot\dist\GHide.exe"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,7 +19,7 @@ Add-Type -ReferencedAssemblies Accessibility.dll -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 
-public static class DesktopIconToggleTestNative
+public static class GHideTestNative
 {
     private const uint OBJID_CLIENT = 0xFFFFFFFC;
 
@@ -44,7 +44,7 @@ public static class DesktopIconToggleTestNative
 '@
 
 $fileVersion = (Get-Item -LiteralPath $ExecutablePath).VersionInfo.FileVersion
-Assert-True ($fileVersion -eq '1.2.1.0') 'file version is 1.2.1.0'
+Assert-True ($fileVersion -eq '1.3.0.0') 'file version is 1.3.0.0'
 
 $assembly = [Reflection.Assembly]::LoadFile((Resolve-Path $ExecutablePath).Path)
 $allStatic = [Reflection.BindingFlags]'Static,Public,NonPublic'
@@ -68,7 +68,7 @@ $findList = $desktopType.GetMethod('FindDesktopListView', $allStatic)
 $listView = [IntPtr]$findList.Invoke($null, @())
 Assert-True ($listView -ne [IntPtr]::Zero) 'desktop list view is discoverable'
 
-$accessible = [DesktopIconToggleTestNative]::GetAccessibleClient($listView)
+$accessible = [GHideTestNative]::GetAccessibleClient($listView)
 try {
     $iconCount = $accessible.accChildCount
     Assert-True ($iconCount -gt 0) "desktop exposes icons through accessibility ($iconCount found)"
@@ -134,7 +134,7 @@ try {
     Start-Sleep -Seconds 2
     Assert-True (-not $process.HasExited) 'application starts and remains resident'
     $awareness = -1
-    $dpiResult = [DesktopIconToggleTestNative]::GetProcessDpiAwareness($process.Handle, [ref]$awareness)
+    $dpiResult = [GHideTestNative]::GetProcessDpiAwareness($process.Handle, [ref]$awareness)
     Assert-True ($dpiResult -eq 0 -and $awareness -eq 2) 'application is per-monitor DPI aware'
 }
 finally {
@@ -154,7 +154,7 @@ Assert-True ([bool]$isAppliedProperty.GetValue($null, @())) 'taskbar transparenc
 [void]$restoreTaskbar.Invoke($null, @())
 Assert-True (-not [bool]$isAppliedProperty.GetValue($null, @())) 'taskbar transparency is restored after test'
 
-$logPath = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'DesktopIconToggle\DesktopIconToggle.log'
+$logPath = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'GHide\GHide.log'
 Assert-True (Test-Path -LiteralPath $logPath) 'diagnostic log is created'
 
 Write-Host 'ALL TESTS PASSED'
