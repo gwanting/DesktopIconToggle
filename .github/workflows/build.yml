@@ -21,9 +21,15 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-cppwinrt
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cppwinrt
+
+      # 诊断工具链：确认 g++ 与 cppwinrt 在 MINGW64 环境可用。
+      - name: Verify toolchain
+        shell: msys2 {0}
+        run: |
+          which g++
+          which cppwinrt
+          cppwinrt -help 2>&1 | head -3 || echo "cppwinrt -help failed"
 
       # 端到端构建：native DLL + 主程序（build.ps1 内部按需生成 C++/WinRT 投影头）。
       - name: Build
