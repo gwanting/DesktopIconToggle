@@ -33,7 +33,9 @@ jobs:
       # 端到端构建：native DLL + 主程序（build.ps1 内部按需生成 C++/WinRT 投影头）。
       - name: Build
         shell: powershell
-        run: .\build.ps1
+        run: |
+          & 'C:\msys64\usr\bin\bash.exe' -lc "echo '-- PATH:' \"\$PATH\"; echo '-- cppwinrt:'; which cppwinrt || echo NONE; echo '-- ls:'; ls -la /mingw64/bin/cppwinrt.exe || echo MISSING"
+          .\build.ps1
 
       # 冒烟检查：反射加载产物，确认关键类型与版本存在（不依赖桌面/Explorer，CI 可运行）。
       # 完整系统测试 test.ps1 需要真实交互桌面（会切换桌面图标），建议在本地运行。
