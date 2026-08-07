@@ -1,5 +1,8 @@
 param(
-    [string]$OutputDirectory = "$PSScriptRoot\dist"
+    [string]$OutputDirectory = "$PSScriptRoot\dist",
+    # MSYS2 bash 路径；CI 中 setup-msys2 的安装位置可能不是默认 C:\msys64，
+    # 通过此参数传入实际路径。
+    [string]$MsysBash = 'C:\msys64\usr\bin\bash.exe'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -15,8 +18,7 @@ if (-not (Test-Path $OutputDirectory)) {
 
 # Build the native injection DLL for taskbar transparency (requires MSYS2 / MinGW-w64).
 # If MSYS2 is missing, skip with a warning; the main program still builds.
-$msysBash = 'C:\msys64\usr\bin\bash.exe'
-if (Test-Path $msysBash) {
+if (Test-Path $MsysBash) {
     # Convert Windows path to MSYS style (D:\a\b -> /d/a/b).
     # Build with Substring to avoid PowerShell expanding $1 inside -replace.
     if (-not $nativeDir) {
@@ -24,7 +26,7 @@ if (Test-Path $msysBash) {
     }
     $nativePosix = '/' + $nativeDir.Substring(0, 1).ToLower() + $nativeDir.Substring(2).Replace('\', '/')
     Write-Host "Building native DLL via MSYS2: $nativePosix"
-    & $msysBash -lc "cd '$nativePosix' && ./build_native.sh"
+    & $MsysBash -lc "cd '$nativePosix' && ./build_native.sh"
     if ($LASTEXITCODE -ne 0) {
         throw 'Native DLL build failed.'
     }
