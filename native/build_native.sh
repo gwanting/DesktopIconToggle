@@ -2,16 +2,21 @@
 # 编译 taskbar_transparency.dll(需在 MSYS2 环境中执行;首次构建会自动生成 C++/WinRT 投影头)
 set -e
 export PATH="/mingw64/bin:$PATH"
+
+# 显式定位工具，避免 PATH 环境差异（CI 的 MSYS2 login shell 可能不含 /mingw64/bin）
+CPPWINRT="$(command -v cppwinrt 2>/dev/null || echo /mingw64/bin/cppwinrt)"
+GXX="$(command -v g++ 2>/dev/null || echo /mingw64/bin/g++)"
+
 cd "$(dirname "$0")"
 
 INCLUDE=include
 if [ ! -f "$INCLUDE/winrt/Windows.UI.Xaml.h" ]; then
     echo "Generating C++/WinRT projections from C:/Windows/System32/WinMetadata ..."
     mkdir -p "$INCLUDE"
-    cppwinrt -in C:/Windows/System32/WinMetadata -out "$INCLUDE"
+    "$CPPWINRT" -in C:/Windows/System32/WinMetadata -out "$INCLUDE"
 fi
 
-g++ -std=c++20 -O2 -shared -static -static-libgcc -static-libstdc++ \
+"$GXX" -std=c++20 -O2 -shared -static -static-libgcc -static-libstdc++ \
     -I "$INCLUDE" \
     taskbar_transparency.cpp \
     -o taskbar_transparency.dll \

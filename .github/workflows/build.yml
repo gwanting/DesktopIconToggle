@@ -34,7 +34,7 @@ jobs:
       - name: Build
         shell: powershell
         run: |
-          & 'C:\msys64\usr\bin\bash.exe' -lc "echo '-- PATH:' \"\$PATH\"; echo '-- cppwinrt:'; which cppwinrt || echo NONE; echo '-- ls:'; ls -la /mingw64/bin/cppwinrt.exe || echo MISSING"
+          & 'C:\msys64\usr\bin\bash.exe' -lc 'echo "PATH=$PATH"; ls -la /mingw64/bin/cppwinrt.exe; which cppwinrt'
           .\build.ps1
 
       # 冒烟检查：反射加载产物，确认关键类型与版本存在（不依赖桌面/Explorer，CI 可运行）。
