@@ -1,7 +1,7 @@
 param(
     [string]$OutputDirectory = "$PSScriptRoot\dist",
-    # MSYS2 bash 路径；CI 中 setup-msys2 的安装位置可能不是默认 C:\msys64，
-    # 通过此参数传入实际路径。
+    # MSYS2 bash path; on CI, setup-msys2 may install to a non-default location,
+    # pass the real path via this parameter.
     [string]$MsysBash = 'C:\msys64\usr\bin\bash.exe'
 )
 
