@@ -10,9 +10,8 @@ using Microsoft.Win32;
 
 [assembly: System.Reflection.AssemblyTitle("GHide")]
 [assembly: System.Reflection.AssemblyDescription("Double-click desktop blank space to toggle desktop icons")]
-[assembly: System.Reflection.AssemblyCompany("gwanting")]
 [assembly: System.Reflection.AssemblyProduct("GHide")]
-[assembly: System.Reflection.AssemblyCopyright("Copyright © 2026 gwanting")]
+[assembly: System.Reflection.AssemblyCopyright("Copyright © 2026")]
 [assembly: System.Reflection.AssemblyInformationalVersion("1.3.0")]
 [assembly: System.Reflection.AssemblyVersion("1.3.0.0")]
 [assembly: System.Reflection.AssemblyFileVersion("1.3.0.0")]
@@ -20,7 +19,7 @@ using Microsoft.Win32;
 internal static class Program
 {
     private const string AppName = "GHide";
-    private const string AppTitle = "G 藏图标";
+    private const string AppTitle = "GHide";
 
     [STAThread]
     private static void Main()
@@ -138,7 +137,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         trayIcon = new NotifyIcon();
         trayIcon.Icon = Icon.ExtractAssociatedIcon(Program.ExecutablePath);
-        trayIcon.Text = "G 藏图标：双击桌面空白处切换图标";
+        trayIcon.Text = "GHide：双击桌面空白处切换图标";
         trayIcon.ContextMenuStrip = menu;
         trayIcon.Visible = true;
         trayIcon.DoubleClick += OnTrayDoubleClick;
@@ -151,7 +150,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         // 默认开启任务栏全透明(可随时在托盘菜单关闭,退出时自动恢复)。
         TaskbarTransparency.Apply();
 
-        trayIcon.ShowBalloonTip(2500, "G 藏图标已启动",
+        trayIcon.ShowBalloonTip(2500, "GHide 已启动",
             "双击桌面空白处，可隐藏或显示全部桌面图标。",
             ToolTipIcon.Info);
     }
@@ -249,7 +248,7 @@ internal sealed class AboutForm : Form
 
     internal AboutForm()
     {
-        Text = "关于 G 藏图标";
+        Text = "关于 GHide";
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -259,14 +258,14 @@ internal sealed class AboutForm : Form
         Font = SystemFonts.MessageBoxFont;
 
         Label appName = new Label();
-        appName.Text = "G 藏图标 (GHide)";
+        appName.Text = "GHide";
         appName.Font = new Font(Font, FontStyle.Bold);
         appName.SetBounds(16, 14, 348, 22);
         Controls.Add(appName);
 
         string version = typeof(Program).Assembly.GetName().Version.ToString(3);
         Label meta = new Label();
-        meta.Text = "版本：v" + version + "   开发者：gwanting";
+        meta.Text = "版本：v" + version;
         meta.SetBounds(16, 42, 348, 20);
         Controls.Add(meta);
 
