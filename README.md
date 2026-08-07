@@ -77,3 +77,7 @@ powershell -ExecutionPolicy Bypass -File .\test.ps1
 ## 免责声明
 
 本软件按"现状"提供，不提供任何明示或暗示的担保；因使用或无法使用本软件造成的任何损失，作者不承担责任。使用前请自行备份重要数据。
+
+## 版权
+
+Copyright © 2026 Wanting. 保留所有权利

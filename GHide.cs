@@ -11,10 +11,10 @@ using Microsoft.Win32;
 [assembly: System.Reflection.AssemblyTitle("GHide")]
 [assembly: System.Reflection.AssemblyDescription("Double-click desktop blank space to toggle desktop icons")]
 [assembly: System.Reflection.AssemblyProduct("GHide")]
-[assembly: System.Reflection.AssemblyCopyright("Copyright © 2026")]
-[assembly: System.Reflection.AssemblyInformationalVersion("1.3.0")]
-[assembly: System.Reflection.AssemblyVersion("1.3.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.3.0.0")]
+[assembly: System.Reflection.AssemblyCopyright("Copyright © 2026 Wanting. 保留所有权利")]
+[assembly: System.Reflection.AssemblyInformationalVersion("1.3.1")]
+[assembly: System.Reflection.AssemblyVersion("1.3.1.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.3.1.0")]
 
 internal static class Program
 {
@@ -269,21 +269,26 @@ internal sealed class AboutForm : Form
         meta.SetBounds(16, 42, 348, 20);
         Controls.Add(meta);
 
+        Label copyright = new Label();
+        copyright.Text = "Copyright © 2026 Wanting. 保留所有权利";
+        copyright.SetBounds(16, 66, 348, 20);
+        Controls.Add(copyright);
+
         Label desc = new Label();
         desc.Text = "双击桌面空白处隐藏/显示桌面图标；运行时可开启任务栏全透明。";
-        desc.SetBounds(16, 68, 348, 34);
+        desc.SetBounds(16, 92, 348, 34);
         Controls.Add(desc);
 
         LinkLabel link = new LinkLabel();
         link.Text = GithubUrl;
         link.LinkClicked += delegate { Process.Start(GithubUrl); };
-        link.SetBounds(16, 108, 348, 20);
+        link.SetBounds(16, 126, 348, 20);
         Controls.Add(link);
 
         Button ok = new Button();
         ok.Text = "确定";
         ok.DialogResult = DialogResult.OK;
-        ok.SetBounds(150, 152, 80, 28);
+        ok.SetBounds(150, 162, 80, 28);
         AcceptButton = ok;
         Controls.Add(ok);
     }

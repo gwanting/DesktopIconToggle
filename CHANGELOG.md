@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.3.1
+
+- 版权署名统一为 **Copyright © 2026 Wanting. 保留所有权利**（与 BCA-Analysis、BCA-MiniApp 一致）。
+- 关于对话框新增版权署名行；LICENSE、README、使用说明同步更新。
+- 版本号更新为 1.3.1.0。
+
 ## v1.3.0
 
 - 正式更名为 **GHide**：程序名、exe 文件名、托盘与“关于”文案、日志路径、开机启动项均同步更新。
