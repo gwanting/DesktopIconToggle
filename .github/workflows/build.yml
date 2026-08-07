@@ -1,0 +1,66 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # MSYS2 提供 MinGW-w64 g++ 与 cppwinrt（编译 taskbar_transparency.dll 所需）。
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cppwinrt
+
+      # 端到端构建：native DLL + 主程序（build.ps1 内部按需生成 C++/WinRT 投影头）。
+      - name: Build
+        shell: powershell
+        run: .\build.ps1
+
+      # 冒烟检查：反射加载产物，确认关键类型与版本存在（不依赖桌面/Explorer，CI 可运行）。
+      # 完整系统测试 test.ps1 需要真实交互桌面（会切换桌面图标），建议在本地运行。
+      - name: Smoke test
+        shell: powershell
+        run: |
+          $asm = [Reflection.Assembly]::LoadFile((Resolve-Path ".\dist\GHide.exe"))
+          $types = @(
+            "Program", "TrayApplicationContext", "DesktopIcons",
+            "ShellFolderView", "TaskbarTransparency", "AboutForm",
+            "DesktopMouseWatcher", "NativeMethods"
+          )
+          foreach ($t in $types) {
+            if (-not $asm.GetType($t, $true)) { throw "Missing type: $t" }
+          }
+          $ver = $asm.GetName().Version
+          Write-Host "Smoke OK: GHide v$ver"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GHide-dist
+          path: |
+            dist/GHide.exe
+            dist/taskbar_transparency.dll
+
+      # 仅打 tag（v*）时发布 Release，附 exe + DLL 资产。
+      - name: Publish Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/GHide.exe
+            dist/taskbar_transparency.dll
+          generate_release_notes: true

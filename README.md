@@ -1,5 +1,7 @@
 # GHide
 
+![build](https://github.com/gwanting/GHide/actions/workflows/build.yml/badge.svg)
+
 一个轻量的 Windows 托盘程序。双击桌面空白处即可隐藏全部桌面图标，再次双击恢复显示；程序运行时底部任务栏自动变为全透明。
 
 当前版本：**v1.3.1**（版权署名统一为 Copyright © 2026 Wanting. 保留所有权利）
