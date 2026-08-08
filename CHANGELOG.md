@@ -5,6 +5,7 @@
 - 版权署名统一为 **Copyright © 2026 Wanting. 保留所有权利**（与 BCA-Analysis、BCA-MiniApp 一致）。
 - 关于对话框新增版权署名行；LICENSE、README、使用说明同步更新。
 - 版本号更新为 1.3.1.0。
+- 工程化：接入 GitHub Actions CI——push 自动构建（MSYS2 编译 native DLL + 主程序）与冒烟检查、上传产物；打 v* tag 自动发布 Release。`build.ps1` 支持 `-MsysBash` 参数，`.gitattributes` 强制脚本 LF。
 
 ## v1.3.0
 
